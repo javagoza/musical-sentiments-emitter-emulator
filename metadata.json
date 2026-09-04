@@ -1,0 +1,6 @@
+{
+  "name": "Sound Messenger AM Synth Emulator",
+  "description": "Hardware and DSP emulator for the 4-voice polyphonic AM-modulated sound messenger and synthesizer system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
