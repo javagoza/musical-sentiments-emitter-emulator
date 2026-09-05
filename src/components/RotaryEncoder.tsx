@@ -138,13 +138,13 @@ export const RotaryEncoder: React.FC<RotaryEncoderProps> = ({
   // >= 600ms & < 1800ms: Long press (Demo Mode Toggle / Exit Settings)
   // >= 1800ms: Settings Press (Enter Settings Mode)
   let holdLabel = 'Short Click';
-  let holdColor = 'text-neutral-400 border-neutral-600';
+  let holdColor = 'text-slate-600 border-slate-300 bg-slate-50';
   if (holdDuration >= 1800) {
     holdLabel = '⚙️ SETTINGS (>1.8s)';
-    holdColor = 'text-amber-400 border-amber-500 bg-amber-950/30';
+    holdColor = 'text-[#D97706] border-[#D97706] bg-amber-50 shadow-sm';
   } else if (holdDuration >= 600) {
     holdLabel = '🔁 DEMO MODE (>0.6s)';
-    holdColor = 'text-cyan-400 border-cyan-500 bg-cyan-950/30';
+    holdColor = 'text-[#00979C] border-[#00979C] bg-[#E8F5F5] shadow-sm';
   }
 
   return (
@@ -158,22 +158,22 @@ export const RotaryEncoder: React.FC<RotaryEncoderProps> = ({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onWheel={handleWheel}
-          className="relative flex h-28 w-28 items-center justify-center rounded-full border-4 border-neutral-800 bg-gradient-to-b from-neutral-700 via-neutral-900 to-black p-2 shadow-[0_10px_25px_rgba(0,0,0,0.8)] cursor-grab active:cursor-grabbing"
+          className="relative flex h-28 w-28 items-center justify-center rounded-full border-4 border-slate-300 bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 p-2 shadow-[0_8px_20px_rgba(0,0,0,0.12)] cursor-grab active:cursor-grabbing ring-1 ring-black/5"
           title="Drag to rotate, scroll wheel, or click center button"
         >
           {/* Metallic knurled circular dial */}
           <div
-            className="relative flex h-full w-full items-center justify-center rounded-full border border-neutral-600 bg-gradient-to-tr from-neutral-800 via-neutral-600 to-neutral-700 shadow-inner transition-transform duration-75"
+            className="relative flex h-full w-full items-center justify-center rounded-full border border-slate-300 bg-gradient-to-tr from-slate-100 via-white to-slate-200 shadow-inner transition-transform duration-75"
             style={{ transform: `rotate(${rotationAngle}deg)` }}
           >
-            {/* Knob notch indicator */}
-            <div className="absolute top-2 h-4 w-1 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+            {/* Knob notch indicator in Arduino Teal */}
+            <div className="absolute top-2 h-4 w-1.5 rounded-full bg-[#00979C] shadow-[0_0_6px_rgba(0,151,156,0.7)]" />
 
             {/* Radial grip grooves */}
-            <div className="absolute inset-2 rounded-full border border-dashed border-neutral-500/30 pointer-events-none" />
+            <div className="absolute inset-2 rounded-full border border-dashed border-slate-300/80 pointer-events-none" />
           </div>
 
-          {/* Center Push Button (SW) */}
+          {/* Center Push Button (SW) - Arduino Style */}
           <button
             id="encoder-push-button"
             data-action="button"
@@ -186,10 +186,10 @@ export const RotaryEncoder: React.FC<RotaryEncoderProps> = ({
               handleButtonUp();
             }}
             onPointerLeave={handleButtonUp}
-            className={`absolute flex h-14 w-14 items-center justify-center rounded-full border-2 transition-all active:scale-95 shadow-lg ${
+            className={`absolute flex h-14 w-14 items-center justify-center rounded-full border-2 transition-all active:scale-95 shadow-md ${
               isPressed || isHolding
-                ? 'border-cyan-400 bg-cyan-600 text-white shadow-[0_0_15px_rgba(56,189,248,0.6)]'
-                : 'border-neutral-500 bg-gradient-to-b from-neutral-800 to-neutral-900 text-neutral-300 hover:border-neutral-400 hover:text-white'
+                ? 'border-[#00979C] bg-[#00979C] text-white shadow-[0_0_12px_rgba(0,151,156,0.6)]'
+                : 'border-slate-300 bg-white text-slate-700 hover:border-[#00979C] hover:text-[#00979C]'
             }`}
           >
             <span className="text-[11px] font-mono font-bold tracking-tight">PUSH</span>
@@ -201,21 +201,21 @@ export const RotaryEncoder: React.FC<RotaryEncoderProps> = ({
           <button
             type="button"
             onClick={() => handleStep(false)}
-            className="flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-900 px-2.5 py-1 text-xs font-mono text-neutral-300 hover:bg-neutral-800 active:scale-95 transition-transform"
+            className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-mono font-medium text-slate-700 hover:border-[#00979C] hover:text-[#00979C] hover:bg-[#F2F8F8] active:scale-95 shadow-xs transition-all"
             title="Step Counter-Clockwise (Left)"
           >
-            <RotateCcw className="h-3.5 w-3.5 text-neutral-400" />
+            <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
             <span>CCW</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleStep(true)}
-            className="flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-900 px-2.5 py-1 text-xs font-mono text-neutral-300 hover:bg-neutral-800 active:scale-95 transition-transform"
+            className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-mono font-medium text-slate-700 hover:border-[#00979C] hover:text-[#00979C] hover:bg-[#F2F8F8] active:scale-95 shadow-xs transition-all"
             title="Step Clockwise (Right)"
           >
             <span>CW</span>
-            <RotateCw className="h-3.5 w-3.5 text-neutral-400" />
+            <RotateCw className="h-3.5 w-3.5 text-slate-400" />
           </button>
         </div>
 
@@ -226,7 +226,7 @@ export const RotaryEncoder: React.FC<RotaryEncoderProps> = ({
               {holdLabel} ({(holdDuration / 1000).toFixed(1)}s)
             </span>
           ) : (
-            <span className="text-[10px] font-mono text-neutral-300">
+            <span className="text-[10px] font-mono text-slate-500 font-medium">
               Turn: Navigate | Push: Action / Hold
             </span>
           )}

@@ -522,9 +522,34 @@ export const OledDisplay: React.FC<OledDisplayProps> = ({
   ]);
 
   return (
-    <div className="relative rounded-lg border-2 border-neutral-700 bg-neutral-950 p-2 shadow-2xl">
-      {/* Front panel OLED bezel */}
-      <div className="relative overflow-hidden rounded bg-black border border-neutral-800 shadow-inner">
+    <div className="relative rounded-xl border-2 border-slate-300 bg-slate-100 p-2.5 shadow-md ring-1 ring-slate-900/5">
+      {/* 4 Arduino Standoff Brass Mounting Holes in corners */}
+      <div className="absolute top-1.5 left-1.5 h-3 w-3 rounded-full border-2 border-[#C29B38] bg-[#D4AF37]/30 flex items-center justify-center pointer-events-none">
+        <div className="h-1 w-1 rounded-full bg-slate-700" />
+      </div>
+      <div className="absolute top-1.5 right-1.5 h-3 w-3 rounded-full border-2 border-[#C29B38] bg-[#D4AF37]/30 flex items-center justify-center pointer-events-none">
+        <div className="h-1 w-1 rounded-full bg-slate-700" />
+      </div>
+      <div className="absolute bottom-1.5 left-1.5 h-3 w-3 rounded-full border-2 border-[#C29B38] bg-[#D4AF37]/30 flex items-center justify-center pointer-events-none">
+        <div className="h-1 w-1 rounded-full bg-slate-700" />
+      </div>
+      <div className="absolute bottom-1.5 right-1.5 h-3 w-3 rounded-full border-2 border-[#C29B38] bg-[#D4AF37]/30 flex items-center justify-center pointer-events-none">
+        <div className="h-1 w-1 rounded-full bg-slate-700" />
+      </div>
+
+      {/* Top Silkscreen Pin Headers */}
+      <div className="mb-1 flex items-center justify-between px-6 text-[9px] font-mono text-slate-500 font-bold select-none">
+        <span className="text-[#00979C]">SSD1306 128x32 OLED</span>
+        <div className="flex gap-2 text-slate-600">
+          <span>GND</span>
+          <span>VCC</span>
+          <span className="text-[#00979C]">SCL</span>
+          <span className="text-[#00979C]">SDA</span>
+        </div>
+      </div>
+
+      {/* Front panel OLED glass bezel */}
+      <div className="relative overflow-hidden rounded bg-black border-2 border-slate-800 shadow-inner">
         {/* CRT / OLED scanline & phosphor glow overlay */}
         <div
           className="pointer-events-none absolute inset-0 z-10 opacity-20"
@@ -553,11 +578,11 @@ export const OledDisplay: React.FC<OledDisplayProps> = ({
       </div>
 
       {/* Physical silkscreen labels below screen matching C++ note: "RF | AUDIO | VOL | FR" */}
-      <div className="mt-1.5 flex items-center justify-between px-2 text-[10px] font-mono tracking-wider text-neutral-400 select-none">
-        <span className="w-12 text-left font-bold text-neutral-300">RF</span>
-        <span className="w-16 text-left font-bold text-neutral-300">AUDIO</span>
-        <span className="flex-1 text-center font-bold text-neutral-300">VOLUME</span>
-        <span className="w-14 text-right font-bold text-neutral-300">FR (kHz)</span>
+      <div className="mt-2 flex items-center justify-between px-4 text-[10px] font-mono tracking-wider text-slate-600 select-none font-bold">
+        <span className="w-12 text-left text-slate-700">RF</span>
+        <span className="w-16 text-left text-slate-700">AUDIO</span>
+        <span className="flex-1 text-center text-[#00979C]">VOLUME</span>
+        <span className="w-14 text-right text-slate-700">FR (kHz)</span>
       </div>
     </div>
   );
