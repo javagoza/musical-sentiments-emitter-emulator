@@ -347,7 +347,7 @@ This value is written to the Output Compare Register (`OCR1A` / `GTCCR`) on ever
 │   │   └── AudioEngine.ts        # Master coordinator, 512-sample ring buffer, Web Audio pump
 │   ├── data/
 │   │   ├── instruments.ts        # Master instrument definitions and preset library
-│   │   └── songs.ts              # 20 Sentiment songs + 29 Demo showcase songs
+│   │   └── songs.ts              # 20 Emotion songs + 29 Demo showcase songs
 │   ├── utils/
 │   │   └── mp3Exporter.ts        # Offline DSP rendering and LAME MP3 export
 │   └── components/
@@ -369,7 +369,7 @@ The rotary encoder driver detects three distinct user interactions:
    - In Playing Mode: Pauses / stops playback and returns to menu.
    - In Settings Mode: Toggles parameter edit mode.
 3. **Medium Press (600 ms to 1800 ms)**:
-   - Swaps song catalog between the 20 Sentiment Songs and the 29 Feature Demo Songs.
+   - Swaps song catalog between the 20 Emotion Songs and the 29 Feature Demo Songs.
 4. **Long Press (> 1800 ms)**:
    - Opens the Hardware Settings Menu (Master Volume, Melody Level, Percussion Level, AM RF Frequency, Output Mode).
 

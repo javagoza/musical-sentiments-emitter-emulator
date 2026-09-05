@@ -288,7 +288,7 @@ export const DEMO_SONGS: Song[] = [
 ];
 
 // =============================================================================
-// PLAYER SONGS (20 Sentiment & Sound Messenger Songs from sentiments.h)
+// PLAYER SONGS (20 Emotion & Sound Messenger Songs from emotions.h)
 // =============================================================================
 
 export const song_pure_joy: Song = {

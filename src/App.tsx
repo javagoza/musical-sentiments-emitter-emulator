@@ -160,7 +160,7 @@ export default function App() {
     setUiState(UIState.UI_MENU_SELECTION);
   }, []);
 
-  // Toggle Song List (Sentiments <-> Demos)
+  // Toggle Song List (Emotions <-> Demos)
   const handleToggleSongList = useCallback(() => {
     if (isPlaying) {
       handleStopPlayback();
@@ -520,7 +520,7 @@ export default function App() {
             <div>
               <strong className="text-slate-900 block mb-1">Push Button (Short Click vs Hold):</strong>
               • Short click: Play / Pause / Edit value<br />
-              • Hold 0.6s - 1.8s: Toggle between 20 Sentiments and 29 Demos<br />
+              • Hold 0.6s - 1.8s: Toggle between 20 Emotions and 29 Demos<br />
               • Hold &gt; 1.8s: Open Hardware Settings Menu
             </div>
             <div>
@@ -631,7 +631,7 @@ export default function App() {
               <div className="mt-3 flex w-full max-w-[512px] items-center justify-between text-xs font-mono text-slate-600 px-2 font-medium">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-[#00979C]" />
-                  Catalog: <strong className="text-slate-900">{isBrowsingDemo ? '29 DEMOS (D)' : '20 SENTIMENTS (♫)'}</strong>
+                  Catalog: <strong className="text-slate-900">{isBrowsingDemo ? '29 DEMOS (D)' : '20 EMOTIONS (♫)'}</strong>
                 </span>
                 <span className="text-slate-600">
                   {uiState === UIState.UI_PLAYING
@@ -696,10 +696,10 @@ export default function App() {
                   type="button"
                   onClick={handleToggleSongList}
                   className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white py-2 text-xs font-mono font-bold text-slate-700 hover:border-[#00979C] hover:text-[#00979C] active:scale-95 transition-all shadow-xs"
-                  title="Switch catalog between 20 Sentiments and 29 Demos"
+                  title="Switch catalog between 20 Emotions and 29 Demos"
                 >
                   <Layers className="h-3.5 w-3.5 text-[#00979C]" />
-                  <span>{isBrowsingDemo ? 'SENTIMENTS' : 'DEMOS'}</span>
+                  <span>{isBrowsingDemo ? 'EMOTIONS' : 'DEMOS'}</span>
                 </button>
 
                 <button

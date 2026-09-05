@@ -333,7 +333,7 @@ LAME MP3 Engine:         Online (44.1 kHz, 192 kbps CBR Export)
       {activeTab === 'catalog' && (
         <div className="mt-3">
           <div className="text-[11px] font-mono text-slate-600 mb-2 flex items-center justify-between font-medium">
-            <span>LOAD SONG INTO SEQUENCER ({isBrowsingDemo ? 'DEMO SHOWCASE' : 'SENTIMENT SONGS'}):</span>
+            <span>LOAD SONG INTO SEQUENCER ({isBrowsingDemo ? 'DEMO SHOWCASE' : 'EMOTION SONGS'}):</span>
             <span className="text-[#00979C] font-semibold">{allSongs.length} SONGS AVAILABLE • CLICK ⬇ MP3 TO EXPORT</span>
           </div>
           <div className="max-h-60 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pr-1">

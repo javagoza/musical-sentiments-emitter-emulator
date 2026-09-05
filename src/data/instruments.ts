@@ -570,7 +570,7 @@ export const INST_ACCORDION_BASS: Instrument = {
   vibrato_freq: 0.0
 };
 
-// --- Sentiment Instruments ---
+// --- Emotion Instruments ---
 
 export const INST_UKULELE_LEAD: Instrument = {
   name: 'Ukulele Lead',
