@@ -47,7 +47,7 @@ The workstation architecture is divided into decoupled modular subsystems:
 
 The synthesizer operates at a primary sampling frequency ($f_s$) of **16,000 Hz** (16.0 kHz). Every audio sample must be calculated within a strict hardware Interrupt Service Routine (ISR) budget:
 
-$$T_{\text{budget}} = \frac{1}{f_s} = \frac{1}{16000\text{ Hz}} = 62.50\text{ }\mu\text{s}$$
+$$T_{\text{budget}} = \frac{1}{f_s} = \frac{1}{16000\text{ Hz}} = 62.50\ \mu\text{s}$$
 
 ```
 [Sequencer Clock] ---> [Voice 1..4 (Melody)]    \
@@ -79,7 +79,7 @@ The system precomputes a 128-element array `MIDI_PHASE[128]` corresponding to MI
 $$f(n) = 440.0 \cdot 2^{\frac{n - 69}{12}}$$
 
 #### Linear Fractional Wavetable Interpolation
-All periodic waveforms are stored in 256-sample lookup tables with 16-bit signed resolution (`int16_t` $[-32767, 32767]$):
+All periodic waveforms are stored in 256-sample lookup tables with 16-bit signed resolution (`int16_t` in range -32767 to 32767):
 - Sine (`SINE_TABLE`)
 - Triangle (`TRIANGLE_TABLE`)
 - Square (`SQUARE_TABLE`)
@@ -89,9 +89,16 @@ All periodic waveforms are stored in 256-sample lookup tables with 16-bit signed
 
 To maintain audio fidelity without audible stepping, lookup uses 24-bit truncation for the base index and the lower 8 bits for linear fractional interpolation:
 
-$$\text{Index}_A = (\text{Phase} \gg 24) \ \& \ 0\text{xFF}$$
-$$\text{Index}_B = (\text{Index}_A + 1) \ \& \ 0\text{xFF}$$
-$$\text{Frac} = \frac{(\text{Phase} \gg 16) \ \& \ 0\text{xFF}}{256.0}$$
+```c
+// 32-bit Phase to 256-entry table index with linear fractional interpolation
+uint8_t index_a = (phase >> 24) & 0xFF;
+uint8_t index_b = (index_a + 1) & 0xFF;
+float frac = ((phase >> 16) & 0xFF) / 256.0f;
+float sample = table[index_a] + frac * (table[index_b] - table[index_a]);
+```
+
+The mathematical interpolation formula is:
+
 $$\text{Sample} = \text{Table}[\text{Index}_A] + \text{Frac} \cdot (\text{Table}[\text{Index}_B] - \text{Table}[\text{Index}_A])$$
 
 #### High-Frequency Smoothing Filter
@@ -119,8 +126,11 @@ Sust. |    /    \__________________
 Envelope parameters are defined in milliseconds ($t_{\text{ms}}$) and converted into linear per-sample increments:
 
 $$\text{Samples per ms} = \frac{f_s}{1000} = 16.0$$
+
 $$\Delta_{\text{attack}} = \frac{1.0}{t_{\text{attack}} \cdot 16.0 + 1.0}$$
+
 $$\Delta_{\text{decay}} = \frac{1.0 - L_{\text{sustain}}}{t_{\text{decay}} \cdot 16.0 + 1.0}$$
+
 $$\Delta_{\text{release}} = \frac{L_{\text{sustain}}}{t_{\text{release}} \cdot 16.0 + 1.0}$$
 
 #### Gate-On Duration
@@ -135,10 +145,19 @@ Vibrato introduces periodic frequency modulation around the base pitch using a d
 
 $$\Delta \text{Phase}_{\text{vibrato}} = \left\lfloor \frac{2^{32} \cdot f_{\text{vibrato}}}{f_s} \right\rfloor$$
 
-At each sample, the vibrato LFO reads from a normalized floating-point sine table `SINE_TABLE_F`:
+At each sample, the vibrato LFO reads from a normalized floating-point sine table:
 
-$$\text{Index}_{\text{vib}} = (\text{Phase}_{\text{vibrato}} \gg 24) \ \& \ 0\text{xFF}$$
-$$M_{\text{vib}} = 1.0 + (\text{Depth}_{\text{vibrato}} \cdot \text{SINE\_TABLE\_F}[\text{Index}_{\text{vib}}])$$
+```c
+// Vibrato LFO calculation
+uint8_t index_vib = (phase_vibrato >> 24) & 0xFF;
+float mod_vib = 1.0f + (vibrato_depth * SINE_TABLE_F[index_vib]);
+uint32_t effective_phase_step = (uint32_t)(base_phase_step * mod_vib);
+```
+
+The mathematical modulation factor is:
+
+$$M_{\text{vib}} = 1.0 + \text{Depth}_{\text{vibrato}} \cdot \sin(2 \pi f_{\text{vibrato}} t)$$
+
 $$\Delta \text{Phase}_{\text{effective}} = \lfloor \Delta \text{Phase}_{\text{base}} \cdot M_{\text{vib}} \rfloor$$
 
 Typical vibrato settings:
@@ -209,7 +228,23 @@ $$S_{\text{mix}} = \left(S_{\text{melodic}} \cdot V_{\text{mel}} + S_{\text{perc
 #### Soft-Knee Saturation (Hyperbolic Tangent Curve)
 To prevent wrap-around overflow while preserving punch and transient presence, samples passing threshold $K = 0.70$ are smoothly compressed using a hyperbolic tangent curve:
 
-$$f(x) = \begin{cases} x & \text{if } |x| \le K \\ K + (1.0 - K) \cdot \tanh\left(\frac{x - K}{1.0 - K}\right) & \text{if } x > K \\ -K - (1.0 - K) \cdot \tanh\left(\frac{-x - K}{1.0 - K}\right) & \text{if } x < -K \end{cases}$$
+$$
+f(x) = \begin{cases} 
+x & \text{for } |x| \le K \\
+K + (1.0 - K) \cdot \tanh\left(\frac{x - K}{1.0 - K}\right) & \text{for } x > K \\
+-K - (1.0 - K) \cdot \tanh\left(\frac{-x - K}{1.0 - K}\right) & \text{for } x < -K
+\end{cases}
+$$
+
+```c
+// Soft-knee hyperbolic tangent compression curve
+float soft_clip(float x) {
+    const float K = 0.70f;
+    if (x > K) return K + (1.0f - K) * tanhf((x - K) / (1.0f - K));
+    if (x < -K) return -K - (1.0f - K) * tanhf((-x - K) / (1.0f - K));
+    return x;
+}
+```
 
 #### Circular Feedback Delay Loop
 A 512-sample circular buffer implements a spatial echo effect:
@@ -257,13 +292,17 @@ To ensure clean switching transitions and prevent timer register underflow/overf
 The linear dynamic range is determined by:
 
 $$\text{SIN}_{\min} = \sin(\pi \cdot 0.05) \approx 0.15643$$
+
 $$\text{SIN}_{\max} = \sin(\pi \cdot 0.45) \approx 0.98769$$
+
 $$\text{SIN}_{\text{center}} = \frac{\text{SIN}_{\max} + \text{SIN}_{\min}}{2} \approx 0.57206$$
-$$\text{SIN}_{\text{half\_range}} = \frac{\text{SIN}_{\max} - \text{SIN}_{\min}}{2} \approx 0.41563$$
+
+$$\text{SIN}_{\text{span}} = \frac{\text{SIN}_{\max} - \text{SIN}_{\min}}{2} \approx 0.41563$$
 
 For any audio sample $s \in [-1.0, 1.0]$:
 
-$$\text{Target}_{\sin} = \text{SIN}_{\text{center}} + s \cdot \text{SIN}_{\text{half\_range}}$$
+$$\text{Target}_{\sin} = \text{SIN}_{\text{center}} + s \cdot \text{SIN}_{\text{span}}$$
+
 $$D = \frac{\arcsin(\text{Target}_{\sin})}{\pi}$$
 
 In firmware, this calculation is accelerated via a 513-entry precalculated lookup table `lut_asin_duty[513]`.
@@ -271,7 +310,14 @@ In firmware, this calculation is accelerated via a 513-entry precalculated looku
 #### Hardware Timer Register Application
 The calculated duty fraction $D$ is scaled by the timer period register `ARR` (or `ICR1` on AVR, or `GTPR` on Renesas RA4M1):
 
-$$\text{PWM\_COMPARE\_VAL} = \lfloor D \cdot \text{TIMER\_PERIOD\_TICKS} \rfloor$$
+```c
+// Scale normalized duty cycle (0.0 to 1.0) to hardware timer period ticks
+uint16_t pwm_compare_val = (uint16_t)(duty_cycle * timer_period_ticks);
+```
+
+The mathematical relationship is:
+
+$$\text{PWM}_{\text{compare}} = \lfloor D \cdot T_{\text{period}} \rfloor$$
 
 This value is written to the Output Compare Register (`OCR1A` / `GTCCR`) on every audio interrupt tick.
 
@@ -582,10 +628,11 @@ LAME MP3 Engine:         Online (44.1 kHz, 192 kbps CBR Export)
 
 ### 9.3 Field Explanations
 
-1. **Average ISR cycle time (`dspAverageUs`)**: The average duration in microseconds spent executing the full synthesis and mixing pipeline per sample tick. In nominal conditions with 4 melodic voices and 2 drums active, this value stays between $12\text{ }\mu\text{s}$ and $22\text{ }\mu\text{s}$.
-2. **Worst ISR cycle peak (`dspWorstUs`)**: The single worst execution spike recorded. Must remain below the $62.50\text{ }\mu\text{s}$ budget. If this exceeds $62.50\text{ }\mu\text{s}$, a warning flag (`WARNING: ISR overrun risk`) is raised.
-3. **Budget per sample**: Hardware timer period fixed at $62.50\text{ }\mu\text{s}$ ($1 / 16000$). CPU headroom percentage is calculated as:
-   $$\text{Headroom} = \frac{62.50 - t_{\text{avg}}}{62.50} \times 100\%$$
+1. **Average ISR cycle time (`dspAverageUs`)**: The average duration in microseconds spent executing the full synthesis and mixing pipeline per sample tick. In nominal conditions with 4 melodic voices and 2 drums active, this value stays between 12 µs and 22 µs.
+2. **Worst ISR cycle peak (`dspWorstUs`)**: The single worst execution spike recorded. Must remain below the 62.50 µs budget. If this exceeds 62.50 µs, a warning flag (`WARNING: ISR overrun risk`) is raised.
+3. **Budget per sample**: Hardware timer period fixed at 62.50 µs ($1 / 16000\text{ s}$). CPU headroom percentage is calculated as:
+
+$$\text{Headroom (\%)} = \frac{62.50 - t_{\text{avg}}}{62.50} \cdot 100$$
 4. **Circular ring buffer**: Tracks real-time audio sample queue fill level (`buf_head - buf_tail & 511`). Nominal level hovers near $384\text{ / }512$.
 5. **Clipping limiter hits**: Increments whenever the raw voice sum passes $+1.0$ or $-1.0$ before being clamped by the soft-knee tanh compression stage.
 6. **Underrun dropouts**: Tracks instances where the output audio consumer requested samples before the DSP ISR had written them to the ring buffer. Zero underruns indicates glitch-free, jitter-free playback.
