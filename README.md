@@ -641,38 +641,59 @@ $$\text{Headroom (\%)} = \frac{62.50 - t_{\text{avg}}}{62.50} \cdot 100$$
 
 ## 10. Oscilloscope and OLED Rendering Engine
 
-The onboard SSD1306 OLED displays a high-performance audio oscilloscope rendered directly from the synthesized sample stream.
+The onboard SSD1306 128x32 OLED displays a high-performance audio oscilloscope rendered directly from the synthesized sample stream.
+
+### 10.1 Display Modes and Default Screen Layout
+
+The oscilloscope features two operational display layouts depending on the active zoom level:
+
+1. **Default Normal View (`scope_zoom_level = 0`, `scope_fullscreen = false`)**:
+   - **Rows 0–6 (Compact Status Header)**: Displays live telemetry including peak amplitude percentage (`P<peak>`), root-mean-square power (`R<rms>`), active synthesizer voice count (`V<voices>`), and dominant fundamental frequency (`--Hz`, `xxxHz`, or `x.xkHz`). An inverted alert box (`!`) illuminates at the upper-right corner if peak amplitude exceeds $0.95$.
+   - **Rows 8–25 (18-Pixel Waveform Window)**: Renders the active waveform centered at row 17 with amplitude $\pm 8$ pixels, complete with a dashed horizontal reference axis (every 8 pixels) and min/max envelope decimation vectors.
+   - **Rows 27–31 (Bottom Level Meter)**: A 5-pixel horizontal power bar showing real-time RMS signal fill with an instantaneous peak marker line.
 
 ```
 +-------------------------------------------------------------+
-| VOL:90%  AM:594k  [DAC+RF]  440Hz               01:24/02:10 |
-|                                                             |
-|           /\          /\                                    |
-|          /  \        /  \                                   |
-| --------/----\------/----\--------------------------------- |
-|               \    /      \    /                            |
-|                \  /        \  /                             |
-|                 \/          \/                              |
-| 1.1 WAVE: SINE                                  ZOOM: 0     |
+| P42 R18 V3                  440Hz                       [!] |
+|                     /\          /\                          |
+| -------------------/--\--------/--\------------------------ |
+|                        \      /    \      /                 |
+|                         \____/      \____/                  |
+| [====================|                                    ] |
 +-------------------------------------------------------------+
 ```
 
-### 10.1 Multi-Scale Zoom and Decimation
+2. **Fullscreen Waveform View (`scope_zoom_level != 0`, `scope_fullscreen = true`)**:
+   - **Columns 0–123 (Full-Height Oscilloscope)**: Expands waveform amplitude to $\pm 15$ pixels across the entire 32-pixel OLED matrix (centered at row 16), maximizing visibility of complex harmonic timbres.
+   - **Columns 124–127 (Dedicated Sound-Power Column)**: The rightmost 4 pixels are reserved for a dual vertical sound-power meter, displaying a vertical RMS fill column and a horizontal peak indicator bar.
 
-To observe both high-frequency waveforms (e.g., 2000 Hz piccolo) and low-frequency bass oscillations (e.g., 55 Hz sub-bass), the capture pipeline features an 18-step logarithmic time-base zoom from $-9$ to $+9$:
-- **Base stride**: 5 samples per screen pixel.
-- **Positive zoom ($+1$ to $+9$)**: Stride doubles each step ($10, 20, 40, \dots$ samples per pixel) to visualize complete musical bars and rhythmic transients.
-- **Negative zoom ($-1$ to $-9$)**: Stride halves ($2, 1$ sample per pixel) to reveal individual carrier cycles and fine phase transitions.
+```
++----------------------------------------------------------+--+
+|           /\                  /\                         |  |
+|          /  \                /  \                        |--| <- Peak
+| --------/----\--------------/----\-----------------------|  |
+|               \    /\      /      \    /\                |##|
+|                \  /  \    /        \  /  \               |##| <- RMS
+|                 \/    \__/          \/    \__/           |##|
++----------------------------------------------------------+--+
+```
 
-### 10.2 Peak and Min/Max Envelope Preservation
+### 10.2 Additive Multi-Scale Zoom Pipeline
 
-To prevent aliasing when downsampling high frequencies to the 128-column screen buffer, the capture engine records both the minimum and maximum sample values encountered during each decimation window:
+To observe both microscopic single-cycle transients and macroscopic rhythmic bars while preserving responsive rendering, the oscilloscope uses an additive zoom algorithm from $-9$ to $+9$:
 
-$$\text{Min}[x] = \min(s_0, s_1, \dots, s_k)$$
-$$\text{Max}[x] = \max(s_0, s_1, \dots, s_k)$$
-$$\text{Mid}[x] = \left\lfloor \frac{\text{Min}[x] + \text{Max}[x]}{2} \right\rfloor$$
+- **Base Stride ($\text{base\_stride} = 5$ samples/point)**: Calculated from the 16.0 kHz sample rate and 40 ms refresh window ($\frac{16000 \times 40\text{ ms}}{1000 \times 128} = 5$).
+- **First Detent (Level $\pm 1$)**: Magnitude 1 switches directly into **Fullscreen Mode** while keeping the exact same base time-base (5 samples/point, $0$ extra steps).
+- **Zoom Out ($+2$ to $+9$)**: From the second detent onward, the time-base grows additively by $5$ samples/point per step:
+  $$\text{stride} = \text{base\_stride} + (\text{magnitude} - 1) \times 5$$
+  At maximum zoom level $+9$, the stride reaches $45$ samples/point ($360\text{ ms}$ per 128-point display frame), keeping animations continuously alive and fluid instead of stalling.
+- **Zoom In ($-2$ to $-9$)**: Decreases stride additively by $5$ samples/point, clamping cleanly at $1\text{ sample/point}$ (raw single-sample resolution for maximum detail).
 
-The display renders a vertical vector connecting $\text{Min}[x]$ and $\text{Max}[x]$, guaranteeing that high-frequency spikes and percussion impulses remain clearly visible regardless of zoom factor.
+### 10.3 Continuous Double-Buffered Capture and Envelope Preservation
+
+To eliminate animation freezes and prevent aliasing when downsampling to the 128-column display buffer:
+1. **Double Buffering**: Audio DSP samples are captured into an active accumulation buffer and committed atomically to a dedicated display buffer upon completing 128 points, immediately re-arming capture for continuous, glitch-free 60 fps rendering.
+2. **Min/Max Envelope Vectors**: The capture engine records both the minimum and maximum sample values within each decimation interval ($\text{Min}[x]$ and $\text{Max}[x]$), rendering a vertical vector between them so transient percussion spikes and sharp FM edges remain visible at any zoom setting.
 
 ---
 

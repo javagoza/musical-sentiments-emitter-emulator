@@ -67,6 +67,10 @@ export class AudioEngine {
   public radio_noise_amount: number = 0.05;
 
   // Oscilloscope Capture Buffer (128 samples)
+  public static readonly SCOPE_ZOOM_MIN: number = -9;
+  public static readonly SCOPE_ZOOM_MAX: number = 9;
+  public static readonly SCOPE_ZOOM_STEP_SAMPLES: number = 5;
+
   public wave_capture_buf: Int8Array = new Int8Array(128);
   public wave_capture_min_buf: Int8Array = new Int8Array(128);
   public wave_capture_max_buf: Int8Array = new Int8Array(128);
@@ -77,6 +81,14 @@ export class AudioEngine {
   public wave_buffer_ready: boolean = false;
   public wave_interval_min: number = 127;
   public wave_interval_max: number = -127;
+
+  // Double-buffered display frame for smooth 60fps OLED rendering
+  public display_wave_buf: Int8Array = new Int8Array(128);
+  public display_min_buf: Int8Array = new Int8Array(128);
+  public display_max_buf: Int8Array = new Int8Array(128);
+  public display_peak: number = 0.0;
+  public display_rms: number = 0.0;
+  public display_freq_hz: number = 0.0;
 
   // Scope metrics
   public scope_peak: number = 0.0;
@@ -156,25 +168,29 @@ export class AudioEngine {
     this.setZoom(next);
   }
 
-  private updateScopeStride() {
-    let stride = this.wave_capture_base_stride;
-    if (this.scope_zoom_level > 0) {
-      for (let i = 0; i < this.scope_zoom_level; i++) {
-        stride *= 2;
-        if (stride > 65535) {
-          stride = 65535;
-          break;
-        }
-      }
-    } else if (this.scope_zoom_level < 0) {
-      for (let i = 0; i > this.scope_zoom_level; i--) {
-        stride = Math.max(1, Math.floor(stride / 2));
-      }
+  public updateScopeStride() {
+    const magnitude = Math.abs(this.scope_zoom_level);
+
+    if (magnitude === 0) {
+      this.wave_capture_stride = this.wave_capture_base_stride;
+      return;
     }
+
+    const extra_steps = magnitude - 1; // 0 on the first detent (magnitude 1 keeps same base stride in fullscreen)
+    let stride: number;
+
+    if (this.scope_zoom_level > 0) {
+      stride = this.wave_capture_base_stride + extra_steps * AudioEngine.SCOPE_ZOOM_STEP_SAMPLES;
+      if (stride > 65535) stride = 65535;
+    } else {
+      stride = this.wave_capture_base_stride - extra_steps * AudioEngine.SCOPE_ZOOM_STEP_SAMPLES;
+      if (stride < 1) stride = 1;
+    }
+
     this.wave_capture_stride = stride;
   }
 
-  public resetScope() {
+  public resetScope(clearDisplay: boolean = false) {
     this.wave_capture_pos = 0;
     this.wave_capture_counter = 0;
     this.wave_interval_min = 127;
@@ -185,6 +201,15 @@ export class AudioEngine {
     this.scope_sample_count = 0;
     this.scope_zero_crossings = 0;
     this.scope_prev_sample = 0;
+
+    if (clearDisplay) {
+      this.display_wave_buf.fill(0);
+      this.display_min_buf.fill(0);
+      this.display_max_buf.fill(0);
+      this.display_peak = 0.0;
+      this.display_rms = 0.0;
+      this.display_freq_hz = 0.0;
+    }
   }
 
   public calculateSongDurationSamples(song: Song): number {
@@ -298,7 +323,7 @@ export class AudioEngine {
     this.scope_fullscreen = false;
     this.scope_display_dirty = false;
     this.updateScopeStride();
-    this.resetScope();
+    this.resetScope(true);
 
     this.buf_head = 0;
     this.buf_tail = 0;
@@ -411,8 +436,6 @@ export class AudioEngine {
   }
 
   private captureSampleToScope(sample: number) {
-    if (this.wave_buffer_ready) return;
-
     const clipped = Math.max(-1.0, Math.min(1.0, sample));
     const q = Math.round(clipped * 127.0);
 
@@ -445,8 +468,34 @@ export class AudioEngine {
       this.scope_prev_sample = q;
 
       if (this.wave_capture_pos >= 128) {
-        this.wave_capture_pos = 0;
+        // Commit completed 128-point frame to the display buffer
+        this.display_wave_buf.set(this.wave_capture_buf);
+        this.display_min_buf.set(this.wave_capture_min_buf);
+        this.display_max_buf.set(this.wave_capture_max_buf);
+        this.display_peak = this.scope_peak;
+        this.display_rms = this.scope_sample_count > 0
+          ? Math.sqrt(this.scope_sum_sq / this.scope_sample_count)
+          : 0.0;
+
+        if (this.scope_sample_count > 1 && this.scope_zero_crossings >= 2 && this.wave_capture_stride > 0) {
+          const window_seconds = (this.scope_sample_count * this.wave_capture_stride) / SAMPLE_RATE;
+          if (window_seconds > 0) {
+            this.display_freq_hz = (this.scope_zero_crossings * 0.5) / window_seconds;
+          }
+        } else {
+          this.display_freq_hz = 0.0;
+        }
+
         this.wave_buffer_ready = true;
+
+        // Reset accumulation counters to continuously capture the next frame
+        this.wave_capture_pos = 0;
+        this.wave_interval_min = 127;
+        this.wave_interval_max = -127;
+        this.scope_peak = 0.0;
+        this.scope_sum_sq = 0.0;
+        this.scope_sample_count = 0;
+        this.scope_zero_crossings = 0;
       }
     }
   }

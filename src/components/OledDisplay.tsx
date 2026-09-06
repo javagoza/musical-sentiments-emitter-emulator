@@ -243,41 +243,53 @@ export const OledDisplay: React.FC<OledDisplayProps> = ({
   const renderPlayingScreen = () => {
     clearDisplay();
 
+    // Natural decay when playback has ceased
+    if (!audioEngine.seq.playing) {
+      audioEngine.display_peak *= 0.88;
+      audioEngine.display_rms *= 0.88;
+      for (let i = 0; i < 128; i++) {
+        audioEngine.display_wave_buf[i] = Math.trunc(audioEngine.display_wave_buf[i] * 0.88);
+        audioEngine.display_min_buf[i] = Math.trunc(audioEngine.display_min_buf[i] * 0.88);
+        audioEngine.display_max_buf[i] = Math.trunc(audioEngine.display_max_buf[i] * 0.88);
+      }
+    }
+
+    const waveBuf = audioEngine.wave_buffer_ready ? audioEngine.display_wave_buf : audioEngine.wave_capture_buf;
+    const minBuf = audioEngine.wave_buffer_ready ? audioEngine.display_min_buf : audioEngine.wave_capture_min_buf;
+    const maxBuf = audioEngine.wave_buffer_ready ? audioEngine.display_max_buf : audioEngine.wave_capture_max_buf;
+    const rms = audioEngine.wave_buffer_ready ? audioEngine.display_rms : (audioEngine.scope_sample_count > 0 ? Math.sqrt(audioEngine.scope_sum_sq / audioEngine.scope_sample_count) : 0.0);
+    const peak = audioEngine.wave_buffer_ready ? audioEngine.display_peak : audioEngine.scope_peak;
+
     if (audioEngine.scope_fullscreen) {
-      // Fullscreen oscilloscope (zoom -9 to +9)
+      // Fullscreen oscilloscope (zoom -9 to +9, magnitude >= 1)
       const WAVEFORM_WIDTH = 124;
       const METER_X = 124;
       const centre_y = 16;
       const amplitude = 15;
 
-      const rms = audioEngine.scope_sample_count > 0
-        ? Math.sqrt(audioEngine.scope_sum_sq / audioEngine.scope_sample_count)
-        : 0.0;
-      const peak = audioEngine.scope_peak;
-
       for (let x = 0; x < WAVEFORM_WIDTH - 1; x++) {
         const i0 = Math.floor((x * 127) / (WAVEFORM_WIDTH - 1));
         const i1 = Math.floor(((x + 1) * 127) / (WAVEFORM_WIDTH - 1));
 
-        const y0 = centre_y - Math.floor((audioEngine.wave_capture_buf[i0] * amplitude) / 127);
-        const y1 = centre_y - Math.floor((audioEngine.wave_capture_buf[i1] * amplitude) / 127);
+        const y0 = centre_y - Math.floor((waveBuf[i0] * amplitude) / 127);
+        const y1 = centre_y - Math.floor((waveBuf[i1] * amplitude) / 127);
 
-        const min_y0 = centre_y - Math.floor((audioEngine.wave_capture_max_buf[i0] * amplitude) / 127);
-        const max_y0 = centre_y - Math.floor((audioEngine.wave_capture_min_buf[i0] * amplitude) / 127);
-        const min_y1 = centre_y - Math.floor((audioEngine.wave_capture_max_buf[i1] * amplitude) / 127);
-        const max_y1 = centre_y - Math.floor((audioEngine.wave_capture_min_buf[i1] * amplitude) / 127);
+        const min_y0 = centre_y - Math.floor((maxBuf[i0] * amplitude) / 127);
+        const max_y0 = centre_y - Math.floor((minBuf[i0] * amplitude) / 127);
+        const min_y1 = centre_y - Math.floor((maxBuf[i1] * amplitude) / 127);
+        const max_y1 = centre_y - Math.floor((minBuf[i1] * amplitude) / 127);
 
         drawLine(x, y0, x + 1, y1, 1);
         drawFastVLine(x, min_y0, Math.max(1, max_y0 - min_y0 + 1), 1);
         drawFastVLine(x + 1, min_y1, Math.max(1, max_y1 - min_y1 + 1), 1);
       }
 
-      // Dashed reference axis
+      // Dashed reference axis at center line
       for (let x = 0; x < WAVEFORM_WIDTH; x += 8) {
         setPixel(x, centre_y, 1);
       }
 
-      // Vertical RMS power bar
+      // Vertical RMS power bar & peak marker in dedicated 4 columns (124..127)
       const rms_height = Math.max(0, Math.min(31, Math.floor(rms * 31)));
       const peak_y = Math.max(0, Math.min(31, 31 - Math.floor(peak * 31)));
 
@@ -292,20 +304,7 @@ export const OledDisplay: React.FC<OledDisplayProps> = ({
       return;
     }
 
-    // Normal Playback Layout (compact status, waveform, bottom meter)
-    const rms = audioEngine.scope_sample_count > 0
-      ? Math.sqrt(audioEngine.scope_sum_sq / audioEngine.scope_sample_count)
-      : 0.0;
-    const peak = audioEngine.scope_peak;
-
-    let freq_hz = 0.0;
-    if (audioEngine.scope_sample_count > 1 && audioEngine.scope_zero_crossings >= 2 && audioEngine.wave_capture_stride > 0) {
-      const window_seconds = (audioEngine.scope_sample_count * audioEngine.wave_capture_stride) / 16000;
-      if (window_seconds > 0) {
-        freq_hz = (audioEngine.scope_zero_crossings * 0.5) / window_seconds;
-      }
-    }
-
+    // Normal Playback Layout (Default zoom 0: compact status header, 18px waveform, bottom 5px level meter)
     const activeVoices = audioEngine.getActiveVoicesInfo().melodic.filter(m => m.state !== 'IDLE').length +
       audioEngine.getActiveVoicesInfo().percussion.filter(p => p.active).length;
 
@@ -315,20 +314,27 @@ export const OledDisplay: React.FC<OledDisplayProps> = ({
     const voicesText = `V${activeVoices}`;
     drawString(`${peakText} ${rmsText} ${voicesText}`, 0, 0);
 
+    const freq_hz = audioEngine.display_freq_hz;
     let freqText = '--Hz';
     if (freq_hz >= 1000) {
-      freqText = `${(freq_hz / 1000).toFixed(1)}k`;
+      freqText = `${(freq_hz / 1000).toFixed(1)}kHz`;
     } else if (freq_hz >= 10) {
       freqText = `${Math.floor(freq_hz)}Hz`;
     }
-    drawString(freqText, 74, 0);
+    drawString(freqText, 72, 0);
+
+    // Overload '!' indicator box if peak >= 0.95
+    if (peak >= 0.95) {
+      fillRect(118, 1, 9, 5, 1);
+      drawString('!', 120, 0, 0);
+    }
 
     // Middle rows 8..25: waveform
     for (let x = 0; x < 127; x++) {
-      const y0 = 17 - Math.floor((audioEngine.wave_capture_buf[x] * 8) / 127);
-      const y1 = 17 - Math.floor((audioEngine.wave_capture_buf[x + 1] * 8) / 127);
-      const min_y = 17 - Math.floor((audioEngine.wave_capture_max_buf[x] * 8) / 127);
-      const max_y = 17 - Math.floor((audioEngine.wave_capture_min_buf[x] * 8) / 127);
+      const y0 = 17 - Math.floor((waveBuf[x] * 8) / 127);
+      const y1 = 17 - Math.floor((waveBuf[x + 1] * 8) / 127);
+      const min_y = 17 - Math.floor((maxBuf[x] * 8) / 127);
+      const max_y = 17 - Math.floor((minBuf[x] * 8) / 127);
 
       drawLine(x, y0, x + 1, y1, 1);
       drawFastVLine(x, min_y, Math.max(1, max_y - min_y + 1), 1);
@@ -347,12 +353,6 @@ export const OledDisplay: React.FC<OledDisplayProps> = ({
       fillRect(1, 28, rms_width, 3, 1);
     }
     drawFastVLine(1 + peak_x, 27, 5, 1);
-
-    // Overload '!' warning
-    if (peak >= 0.95) {
-      fillRect(118, 1, 9, 5, 1);
-      drawString('!', 120, 0, 0);
-    }
   };
 
   // Render routine identical to C++ renderSettingsScreen()

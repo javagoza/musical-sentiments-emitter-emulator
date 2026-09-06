@@ -83,6 +83,7 @@ export default function App() {
   const buttonPressStartRef = useRef<number>(0);
   const buttonHoldFiredRef = useRef<boolean>(false);
   const [isEncoderPressed, setIsEncoderPressed] = useState<boolean>(false);
+  const [scopeZoomLevel, setScopeZoomLevel] = useState<number>(0);
 
   const currentSongList: Song[] = isBrowsingDemo ? DEMO_SONGS : PLAYER_SONGS;
   const currentSong = currentSongList[selectedSongIndex] || currentSongList[0];
@@ -134,14 +135,26 @@ export default function App() {
     engine.initAudio();
     setActiveSongIndex(index);
     engine.startSong(currentSongList, index);
+    setScopeZoomLevel(0);
     setIsPlaying(true);
     setUiState(UIState.UI_PLAYING);
   }, [engine, currentSongList, selectedSongIndex]);
 
   const handleStopPlayback = useCallback(() => {
     engine.stopSong();
+    setScopeZoomLevel(0);
     setIsPlaying(false);
     setUiState(UIState.UI_MENU_SELECTION);
+  }, [engine]);
+
+  const handleSetZoom = useCallback((zoom: number) => {
+    engine.setZoom(zoom);
+    setScopeZoomLevel(engine.scope_zoom_level);
+  }, [engine]);
+
+  const handleAdjustZoom = useCallback((clockwise: boolean) => {
+    engine.adjustZoom(clockwise);
+    setScopeZoomLevel(engine.scope_zoom_level);
   }, [engine]);
 
   // Enter / Exit Settings
@@ -231,12 +244,8 @@ export default function App() {
       });
     } else if (uiState === UIState.UI_PLAYING) {
       // While playing, encoder rotates oscilloscope zoom (-9 to +9)
-      const currentZoom = engine.scope_zoom_level;
-      const nextZoom = clockwise
-        ? Math.min(9, currentZoom + 1)
-        : Math.max(-9, currentZoom - 1);
-      engine.scope_zoom_level = nextZoom;
-      engine.scope_fullscreen = (nextZoom !== 0);
+      engine.adjustZoom(clockwise);
+      setScopeZoomLevel(engine.scope_zoom_level);
     } else if (uiState === UIState.UI_SETTINGS) {
       if (!isSettingsEditing) {
         // Browse Settings Items
@@ -514,7 +523,7 @@ export default function App() {
             <div>
               <strong className="text-slate-900 block mb-1">Rotary Encoder (Turn Knob):</strong>
               • In menu: Browse songs (Clockwise = Next, Counter-Clockwise = Prev)<br />
-              • Playing: Oscilloscope zoom (-9 to +9 steps)<br />
+              • Playing: Oscilloscope zoom (-9 to +9 additive steps; default is Normal view at zoom 0; non-zero switches to Fullscreen)<br />
               • In settings: Change parameters (Volume, AM Frequency, Output Mode)
             </div>
             <div>
@@ -628,18 +637,74 @@ export default function App() {
               </div>
 
               {/* Status info bar under display */}
-              <div className="mt-3 flex w-full max-w-[512px] items-center justify-between text-xs font-mono text-slate-600 px-2 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#00979C]" />
-                  Catalog: <strong className="text-slate-900">{isBrowsingDemo ? '29 DEMOS (D)' : '20 EMOTIONS (♫)'}</strong>
-                </span>
-                <span className="text-slate-600">
-                  {uiState === UIState.UI_PLAYING
-                    ? `OSCILLOSCOPE ${engine.scope_fullscreen ? `ZOOM: ${engine.scope_zoom_level}` : 'NORMAL'}`
-                    : uiState === UIState.UI_SETTINGS
-                    ? (isSettingsEditing ? 'EDITING VALUE' : 'BROWSING SETTINGS')
-                    : 'STANDBY'}
-                </span>
+              <div className="mt-3 flex w-full max-w-[512px] flex-col gap-2 px-2 font-mono text-xs">
+                <div className="flex items-center justify-between text-slate-600 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-[#00979C]" />
+                    Catalog: <strong className="text-slate-900">{isBrowsingDemo ? '29 DEMOS (D)' : '20 EMOTIONS (♫)'}</strong>
+                  </span>
+                  <span className="text-slate-600">
+                    {uiState === UIState.UI_PLAYING ? (
+                      <span className="flex items-center gap-1.5 font-bold text-slate-800">
+                        {scopeZoomLevel === 0 ? (
+                          <span className="text-[#00979C]">SCOPE: NORMAL (DEFAULT)</span>
+                        ) : scopeZoomLevel > 0 ? (
+                          <span className="text-indigo-600">FULLSCREEN ZOOM: +{scopeZoomLevel}</span>
+                        ) : (
+                          <span className="text-emerald-600">FULLSCREEN ZOOM: {scopeZoomLevel}</span>
+                        )}
+                        <span className="text-[10px] font-normal text-slate-500">
+                          ({engine.wave_capture_stride} smp/pt)
+                        </span>
+                      </span>
+                    ) : uiState === UIState.UI_SETTINGS ? (
+                      isSettingsEditing ? 'EDITING VALUE' : 'BROWSING SETTINGS'
+                    ) : (
+                      'STANDBY'
+                    )}
+                  </span>
+                </div>
+
+                {/* Live Oscilloscope Zoom Controller Bar during Playback */}
+                {uiState === UIState.UI_PLAYING && (
+                  <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-100/80 px-2.5 py-1.5 text-[11px] shadow-2xs">
+                    <span className="text-slate-500 font-medium">
+                      Scope Time-Base:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleAdjustZoom(false)}
+                        disabled={scopeZoomLevel <= -9}
+                        className="rounded border border-slate-300 bg-white px-2 py-0.5 font-bold text-slate-700 hover:bg-slate-50 active:scale-95 disabled:opacity-40"
+                        title="Zoom In (Decrease stride down to 1 sample/point for maximum waveform resolution)"
+                      >
+                        - Zoom In
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetZoom(0)}
+                        className={`rounded border px-2 py-0.5 font-bold transition-colors ${
+                          scopeZoomLevel === 0
+                            ? 'border-[#00979C] bg-[#00979C] text-white'
+                            : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                        title="Reset to default Normal View (Zoom 0: Status header, 18px waveform, level meter)"
+                      >
+                        Default (0)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAdjustZoom(true)}
+                        disabled={scopeZoomLevel >= 9}
+                        className="rounded border border-slate-300 bg-white px-2 py-0.5 font-bold text-slate-700 hover:bg-slate-50 active:scale-95 disabled:opacity-40"
+                        title="Zoom Out (Increase stride additively up to 45 samples/point for wide rhythmic view)"
+                      >
+                        + Zoom Out
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
