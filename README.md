@@ -682,10 +682,10 @@ The oscilloscope features two operational display layouts depending on the activ
 
 To observe both microscopic single-cycle transients and macroscopic rhythmic bars while preserving responsive rendering, the oscilloscope uses an additive zoom algorithm from $-9$ to $+9$:
 
-- **Base Stride ($\text{base\_stride} = 5$ samples/point)**: Calculated from the 16.0 kHz sample rate and 40 ms refresh window ($\frac{16000 \times 40\text{ ms}}{1000 \times 128} = 5$).
+- **Base Stride ($S_{\text{base}} = 5\text{ samples/point}$)**: Calculated from the 16.0 kHz sample rate and 40 ms refresh window ($\frac{16000 \times 40\text{ ms}}{1000 \times 128} = 5$).
 - **First Detent (Level $\pm 1$)**: Magnitude 1 switches directly into **Fullscreen Mode** while keeping the exact same base time-base (5 samples/point, $0$ extra steps).
 - **Zoom Out ($+2$ to $+9$)**: From the second detent onward, the time-base grows additively by $5$ samples/point per step:
-  $$\text{stride} = \text{base\_stride} + (\text{magnitude} - 1) \times 5$$
+  $$S_{\text{stride}} = S_{\text{base}} + (M - 1) \times 5$$
   At maximum zoom level $+9$, the stride reaches $45$ samples/point ($360\text{ ms}$ per 128-point display frame), keeping animations continuously alive and fluid instead of stalling.
 - **Zoom In ($-2$ to $-9$)**: Decreases stride additively by $5$ samples/point, clamping cleanly at $1\text{ sample/point}$ (raw single-sample resolution for maximum detail).
 

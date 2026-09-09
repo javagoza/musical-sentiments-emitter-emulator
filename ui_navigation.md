@@ -48,10 +48,10 @@ stateDiagram-v2
 
     state UI_MENU_SELECTION {
         [*] --> BrowsingEmotions: Default Catalogue
-        BrowsingEmotions --> BrowsingDemos: Medium Press (600ms - 1800ms)
-        BrowsingDemos --> BrowsingEmotions: Medium Press (600ms - 1800ms)
-        BrowsingEmotions --> BrowsingEmotions: Rotate CW / CCW (Scroll Songs)
-        BrowsingDemos --> BrowsingDemos: Rotate CW / CCW (Scroll Songs)
+        BrowsingEmotions --> BrowsingDemos: Medium Press (600ms to 1800ms)
+        BrowsingDemos --> BrowsingEmotions: Medium Press (600ms to 1800ms)
+        BrowsingEmotions --> BrowsingEmotions: Rotate CW or CCW (Scroll Songs)
+        BrowsingDemos --> BrowsingDemos: Rotate CW or CCW (Scroll Songs)
     }
 
     state UI_PLAYING {
@@ -60,22 +60,22 @@ stateDiagram-v2
         NormalScope --> FullscreenScopeZoomIn: Rotate CCW (Zoom -1 to -9)
         FullscreenScopeZoomOut --> NormalScope: Rotate CCW back to Zoom 0
         FullscreenScopeZoomIn --> NormalScope: Rotate CW back to Zoom 0
-        FullscreenScopeZoomOut --> FullscreenScopeZoomOut: Rotate CW / CCW
-        FullscreenScopeZoomIn --> FullscreenScopeZoomIn: Rotate CW / CCW
+        FullscreenScopeZoomOut --> FullscreenScopeZoomOut: Rotate CW or CCW
+        FullscreenScopeZoomIn --> FullscreenScopeZoomIn: Rotate CW or CCW
     }
 
     state UI_SETTINGS {
         [*] --> BrowseSettings: Enter on Melody Vol
-        BrowseSettings --> BrowseSettings: Rotate CW / CCW (Select Parameter)
-        BrowseSettings --> EditValue: Short Click (< 600ms)
-        EditValue --> BrowseSettings: Short Click (< 600ms)
-        EditValue --> EditValue: Rotate CW / CCW (Adjust Value Live)
+        BrowseSettings --> BrowseSettings: Rotate CW or CCW (Select Parameter)
+        BrowseSettings --> EditValue: Short Click under 600ms
+        EditValue --> BrowseSettings: Short Click under 600ms
+        EditValue --> EditValue: Rotate CW or CCW (Adjust Value Live)
     }
 
     UI_MENU_SELECTION --> UI_PLAYING: Short Click on selected song
-    UI_PLAYING --> UI_MENU_SELECTION: Short Click (Panic Stop) / Song Finished
-    UI_MENU_SELECTION --> UI_SETTINGS: Long Press (> 1800ms)
-    UI_SETTINGS --> UI_MENU_SELECTION: Medium Press / Long Press / 5s Inactivity
+    UI_PLAYING --> UI_MENU_SELECTION: Short Click (Panic Stop) or Song Finished
+    UI_MENU_SELECTION --> UI_SETTINGS: Long Press over 1800ms
+    UI_SETTINGS --> UI_MENU_SELECTION: Medium Press or 5s Inactivity
 ```
 
 ---
@@ -230,7 +230,7 @@ Activated by rotating the encoder clockwise during playback. Zoom level changes 
 ```
 
 #### Fullscreen Stride Calculation Table
-$$\text{stride} = \text{base\_stride} \pm (\text{magnitude} - 1) \times 5$$
+$$S_{\text{stride}} = S_{\text{base}} \pm (M - 1) \times 5$$
 
 | Zoom Level | Mode Name | Stride ($\text{samples/point}$) | Total Window Time ($16\text{ kHz}$) | Visual Focus |
 | :---: | :---: | :---: | :---: | :--- |
@@ -360,44 +360,44 @@ Configures physical audio routing using a 4-segment segmented pill selector. The
 
 ```mermaid
 flowchart TD
-    BOOT([System Power On]) --> MENU[Main Song Selection Menu]
+    BOOT(["System Power On"]) --> MENU["Main Song Selection Menu"]
     
-    subgraph S_MENU [Song Selection Menu]
-        MENU -->|Rotate CW| NEXT_SONG[Next Song Title]
-        MENU -->|Rotate CCW| PREV_SONG[Previous Song Title]
+    subgraph S_MENU ["Song Selection Menu"]
+        MENU -->|"Rotate CW"| NEXT_SONG["Next Song Title"]
+        MENU -->|"Rotate CCW"| PREV_SONG["Previous Song Title"]
         NEXT_SONG --> MENU
         PREV_SONG --> MENU
-        MENU -->|Hold 600ms - 1800ms| TOGGLE_CAT[Toggle Catalogue: Emotions <--> Demos]
+        MENU -->|"Hold 600ms to 1800ms"| TOGGLE_CAT["Toggle Catalogue: Emotions or Demos"]
         TOGGLE_CAT --> MENU
     end
 
-    MENU -->|Short Click < 600ms| PLAY[UI_PLAYING: Audio Synthesizer Active]
+    MENU -->|"Short Click under 600ms"| PLAY["UI_PLAYING: Audio Synthesizer Active"]
 
-    subgraph S_PLAY [Playback & Oscilloscope]
-        PLAY -->|Default Zoom 0| SCOPE_NORM[Normal View: Telemetry Header + 18px Scope + Meter]
-        SCOPE_NORM -->|Rotate CW| SCOPE_OUT[Fullscreen Zoom Out: +1 to +9 Macro Stride]
-        SCOPE_NORM -->|Rotate CCW| SCOPE_IN[Fullscreen Zoom In: -1 to -9 Micro Stride]
-        SCOPE_OUT -->|Rotate CCW to 0| SCOPE_NORM
-        SCOPE_IN -->|Rotate CW to 0| SCOPE_NORM
-        SCOPE_OUT -->|Rotate CW/CCW| SCOPE_OUT
-        SCOPE_IN -->|Rotate CW/CCW| SCOPE_IN
+    subgraph S_PLAY ["Playback and Oscilloscope"]
+        PLAY -->|"Default Zoom 0"| SCOPE_NORM["Normal View: Telemetry Header, 18px Scope, Meter"]
+        SCOPE_NORM -->|"Rotate CW"| SCOPE_OUT["Fullscreen Zoom Out: +1 to +9 Macro Stride"]
+        SCOPE_NORM -->|"Rotate CCW"| SCOPE_IN["Fullscreen Zoom In: -1 to -9 Micro Stride"]
+        SCOPE_OUT -->|"Rotate CCW to 0"| SCOPE_NORM
+        SCOPE_IN -->|"Rotate CW to 0"| SCOPE_NORM
+        SCOPE_OUT -->|"Rotate CW or CCW"| SCOPE_OUT
+        SCOPE_IN -->|"Rotate CW or CCW"| SCOPE_IN
     end
 
-    PLAY -->|Short Click Panic Stop| MENU
-    PLAY -->|Song Steps Completed| MENU
+    PLAY -->|"Short Click Panic Stop"| MENU
+    PLAY -->|"Song Steps Completed"| MENU
 
-    MENU -->|Hold > 1800ms| SETTINGS[UI_SETTINGS: Navigation Mode]
+    MENU -->|"Hold over 1800ms"| SETTINGS["UI_SETTINGS: Navigation Mode"]
 
-    subgraph S_SETTINGS [Settings System]
-        SETTINGS -->|Rotate CW/CCW| SET_ITEM[Cycle Parameter: Melody / Perc / Master / Freq / Output]
+    subgraph S_SETTINGS ["Settings System"]
+        SETTINGS -->|"Rotate CW or CCW"| SET_ITEM["Cycle Parameter: Melody, Perc, Master, Freq, Output"]
         SET_ITEM --> SETTINGS
-        SETTINGS -->|Short Click < 600ms| EDIT_VAL[UI_SETTINGS: Value Edit Mode with [E] Icon]
-        EDIT_VAL -->|Rotate CW| INC_VAL[Increment Value Live]
-        EDIT_VAL -->|Rotate CCW| DEC_VAL[Decrement Value Live]
+        SETTINGS -->|"Short Click under 600ms"| EDIT_VAL["UI_SETTINGS: Value Edit Mode (E Icon)"]
+        EDIT_VAL -->|"Rotate CW"| INC_VAL["Increment Value Live"]
+        EDIT_VAL -->|"Rotate CCW"| DEC_VAL["Decrement Value Live"]
         INC_VAL --> EDIT_VAL
         DEC_VAL --> EDIT_VAL
-        EDIT_VAL -->|Short Click < 600ms| SETTINGS
-        SETTINGS -->|Hold > 600ms OR 5s Inactivity| MENU
+        EDIT_VAL -->|"Short Click under 600ms"| SETTINGS
+        SETTINGS -->|"Hold over 600ms or 5s Inactivity"| MENU
     end
 ```
 
