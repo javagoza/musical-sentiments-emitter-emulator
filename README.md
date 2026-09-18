@@ -1,5 +1,11 @@
 # Arduino Sound Messenger & DSP Synthesis Workstation
 
+---
+> A complete design and development article is available on element14, covering the entire journey from the first Arduino RF experiments to the finished Musical Emotions Emitter:
+>
+> https://community.element14.com/challenges-projects/project14/b/make-a-connection/posts/musical-emotions-emitter-broadcasting-emotions-over-medium-wave-radio
+---
+
 ## 1. Project Overview
 
 The Arduino Sound Messenger & DSP Synthesis Workstation is an embedded audio synthesizer, digital signal processor (DSP), and AM radio transmitter firmware designed for microcontrollers (such as the Renesas RA4M1 48 MHz ARM Cortex-M4 on the Arduino UNO R4 series) and paired with an identical, cycle-accurate web simulation runtime.
